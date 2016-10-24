@@ -1,18 +1,26 @@
-# local cassandra for development
+# spring
+spring.profiles: local
+spring.application.name: rt911
+spring.application.environment: local
+
+---
+# cassandra
 cassandra:
   defaultQueryConsistency: ONE
   defaultUpdateConsistency: ONE
   updateTimeoutMillis: 5000
   compression: LZ4
-  nodeAddress: cassandra-oem.service.consul
+  nodeAddress: localhost
+  host: 127.0.0.1
 
   keyspaces:
-    - name: event_ledger
+    - name: rt911
       createCommand: "CREATE KEYSPACE testkeyspace WITH replication = {'class':'SimpleStrategy', 'replication_factor':1};"
       dropCommand: "DROP KEYSPACE IF EXISTS testkeyspace;"
+      truncateCommand: "TRUNCATE testkeyspace.rt911"
       tables:
         - name: calls
-          createCommand: >
+          createCommand:
               CREATE TABLE testkeyspace.rt911 (
                 address varchar,
                 calltype varchar,
@@ -21,18 +29,21 @@ cassandra:
                 longitude varchar,
                 location varchar,
                 id varchar PRIMARY KEY);
+          insertPreparedStatementCommand:
+              INSERT INTO testkeyspace.rt911 (address, calltype, calltime, latitude, longitude, location, id)
+                VALUES ( ?, ?, ?, ?, ?, ?, ? );
 
 ---
-spring.profiles: local
-
-cassandra.nodeAddress: localhost
-
-spring.application.name: rt911
-spring.application.environment: local
-
----
+# s3
 s3.bucket.name: test-bucket-1
-s3.url: "s3://peoplenet-spark-poc-data/data/*"
 
-cassandra.keyspace.name: testkeyspace
-cassandra.host: 127.0.0.1
+---
+# Spark
+spark.master: local
+spark.executor.memory: 1g
+spark.cassandra.connection.host: 127.0.0.1
+
+---
+# demo data
+#demo.data.filename: Seattle_Real_Time_Fire_911_Calls_10_Test.csv.gz
+demo.data.filename: Seattle_Real_Time_Fire_911_Calls_Chrono.csv.gz

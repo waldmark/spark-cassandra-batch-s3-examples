@@ -14,6 +14,12 @@ import org.springframework.stereotype.Component;
 
 import java.util.*;
 
+/**
+ * orchestrates the demo example to
+ * 1) create demo data in Cassandra
+ * 2) read data from Cassandra and analyze with Spark
+ * 3) write analysis results to S3
+ */
 @Component
 //@PropertySource(name = "props", value = "classpath:/application.yml")
 public class SparkCassandraRunner {
@@ -34,9 +40,11 @@ public class SparkCassandraRunner {
     public void runSparkStreamProcessing() {
 
         /**
-        initialize Cassandra with 911 call data
-        this requires that Cassandra is up and running
-        the demo is configured to run with a local Cassandra, for example a docker Cassandra image
+         * initialize Cassandra with 911 call data
+         * this requires that Cassandra is up and running
+         * the demo is configured to run with a local Cassandra,
+         * for example a docker Cassandra image
+         * @link https://hub.docker.com/_/cassandra/
          */
         dataLoader.insertCalls();
 
@@ -48,16 +56,16 @@ public class SparkCassandraRunner {
         //create JSON objects from the Spark results
         LOG.info("converting Spark results to JSON");
 
-        JavaPairRDD<String, Iterable<RealTime911>> x = callsByCallDate.groupByKey();
-        Map<String, Iterable<RealTime911>> xmap = x.collectAsMap();
-        Set<String> keys = xmap.keySet();
+        JavaPairRDD<String, Iterable<RealTime911>> groupedCalls = callsByCallDate.groupByKey();
+        Map<String, Iterable<RealTime911>> groupedCallMap = groupedCalls.collectAsMap();
+        Set<String> keys = groupedCallMap.keySet();
 
         ObjectMapper mapper = new ObjectMapper();
 
         Map<String, String> s3BucketData = new HashMap<>();
         for(String key: keys) {
             List<String> jsonArrayElements = new ArrayList<>();
-            Iterable<RealTime911> iterable = xmap.get(key);
+            Iterable<RealTime911> iterable = groupedCallMap.get(key);
             Iterator<RealTime911> iterator = iterable.iterator();
             while(iterator.hasNext()) {
                 RealTime911 rt911 = iterator.next();
@@ -76,10 +84,10 @@ public class SparkCassandraRunner {
         }
 
         /**
-        save to S3
-        this demo assume S3 is available somewhere
-        the demo usesthe Scalaity open source S3 docker image
-        @link https://s3.scality.com/
+         * save to S3
+         * this demo assumes S3 is available somewhere
+         * the demo uses the Scality open source S3 docker image
+         * @link https://s3.scality.com/
          */
         LOG.info("storing JSON into S3 bucket: " + bucketName);
 
@@ -96,23 +104,19 @@ public class SparkCassandraRunner {
             s3Client.createBucket(bucketName);
             LOG.info("S3 bucket " + bucketName + " created");
 
+
+            Set<String> bucketKeys = s3BucketData.keySet();
             // save to S3
-            for(String key: s3BucketData.keySet()) {
+            for(String key: bucketKeys) {
                 s3Client.storeString(bucketName, key, s3BucketData.get(key));
             }
-            LOG.info("saving JSON to S3 completed");
+            LOG.info("finished saving JSON to S3 completed");
 
-            // dump the bucket to see what's inside
-            List<String> descs = s3Client.getBucketObjectDescriptions(bucketName);
-            LOG.info("S3 bucket " + bucketName + " holds these objects:");
-            for(String desc: descs) {
-                LOG.info(desc);
+            LOG.info("displaying all JSON objects and their keys saved to " + bucketName + "\n");
+            for(String key: bucketKeys) {
+                String storedObject = s3Client.readS3Object(bucketName, key);
+                LOG.info("key: " + key + " value: " + storedObject);
             }
-
-            // try reading the JSON data back from the bucket
-            String key = s3BucketData.keySet().iterator().next(); // get first key
-            String storedObject = s3Client.readS3Object(bucketName, s3BucketData.keySet().iterator().next());
-            LOG.info("read from S3 bucket " + bucketName + " and key " + key + ": \n" + storedObject);
         } catch (Exception e) {
             LOG.error(e.getMessage());
         } finally {

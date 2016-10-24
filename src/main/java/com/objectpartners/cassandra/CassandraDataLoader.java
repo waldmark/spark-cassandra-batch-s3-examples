@@ -1,9 +1,6 @@
 package com.objectpartners.cassandra;
 
-import com.datastax.driver.core.Cluster;
-import com.datastax.driver.core.Host;
-import com.datastax.driver.core.Metadata;
-import com.datastax.driver.core.Session;
+import com.datastax.driver.core.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -17,7 +14,7 @@ import java.util.zip.GZIPInputStream;
 
 /**
  * Create Cassandra database and
- * loads demo data (911 calls) into Casandra
+ * load demo data (911 calls) into Casandra
  */
 @Component
 public class CassandraDataLoader {
@@ -25,18 +22,30 @@ public class CassandraDataLoader {
     private static Logger LOG = LoggerFactory.getLogger(CassandraDataLoader.class);
 
     @Value(value="${cassandra.keyspaces[0].dropCommand}")
-    private String drpKeyspaceCommand;
+    private String dropKeyspaceCommand;
 
     @Value(value="${cassandra.keyspaces[0].createCommand}")
     private String createKeyspaceCommand;
 
+    @Value(value="${cassandra.keyspaces[0].truncateCommand}")
+    private String truncateKeyspaceCommand;
+
     @Value(value="${cassandra.keyspaces[0].tables[0].createCommand}")
     private String createRT911TableCommand;
+
+    @Value(value="${cassandra.keyspaces[0].tables[0].insertPreparedStatementCommand}")
+    private String insertRT911DataCommand;
+
+    @Value(value="${demo.data.filename:Seattle_Real_Time_Fire_911_Calls_10_Test.csv.gz}")
+    private String dataFileName;
+
+    @Value(value="${cassandra.host:127.0.0.1}")
+    private String cassandraHost;
 
     private Session session;
 
     public void insertCalls() {
-        Cluster cluster = Cluster.builder().addContactPoint("127.0.0.1").build();
+        Cluster cluster = Cluster.builder().addContactPoint(cassandraHost).build();
 
         Metadata metadata = cluster.getMetadata();
         LOG.info("Connected to cluster: " + metadata.getClusterName());
@@ -54,7 +63,7 @@ public class CassandraDataLoader {
 
     private void createSchema() {
         try {
-            session.execute(drpKeyspaceCommand);
+            session.execute(dropKeyspaceCommand);
         } catch (Exception e) {
             System.out.println(e.getMessage());
             System.exit(-1);
@@ -66,49 +75,48 @@ public class CassandraDataLoader {
 
     private void loadData() {
         // first, clean out existing data
-        session.execute("TRUNCATE testkeyspace.rt911");
+        session.execute(truncateKeyspaceCommand);
         readInputData();
     }
 
     private void readInputData() {
-//        String dataFileName = "Seattle_Real_Time_Fire_911_Calls_10_Test.csv.gz";
-        String dataFileName = "Seattle_Real_Time_Fire_911_Calls_Chrono.csv.gz";
-
         LOG.info("reading data from " + dataFileName);
         try {
-            final InputStream is = CassandraDataLoader.class.getResourceAsStream("/"+dataFileName);
-            final BufferedInputStream bis =  new BufferedInputStream(is);
+            final InputStream is = CassandraDataLoader.class.getResourceAsStream("/" + dataFileName);
+            final BufferedInputStream bis = new BufferedInputStream(is);
             final GZIPInputStream iis = new GZIPInputStream(bis);
             final InputStreamReader gzipReader = new InputStreamReader(iis);
             final BufferedReader br = new BufferedReader(gzipReader);
             br.readLine(); // skip header or first line
+            PreparedStatement prepared = session.prepare(insertRT911DataCommand);
 
             LOG.info("START DATA LOADING");
 
-            int i = 1;
+            int counter = 1;
             String line;
-            while((line = br.readLine()) != null) {
+            while ((line = br.readLine()) != null) {
                 // parse into values
                 String[] values = parse(line);
-                i++;
-                try {
-                    // Insert one record
-                    session.execute("INSERT INTO testkeyspace.rt911 (address, calltype, calltime, latitude, longitude, location, id) " +
-                            "VALUES ("
-                            + "'" + values[0] + "',"
-                            + "'" + values[1] + "',"
-                            + "'" + values[2] + "',"
-                            + "'" + values[3] + "',"
-                            + "'" + values[4] + "',"
-                            + "'" + values[5] + "',"
-                            + "'" + values[6] + "'"
-                            + ")");
-                } catch (Exception e) {
-                    LOG.info("error " + e.getMessage());
+                if (null != values) {
+                    counter++;
+                    try {
+                        session.execute(prepared.bind(
+                                values[0],
+                                values[1],
+                                values[2],
+                                values[3],
+                                values[4],
+                                values[5],
+                                values[6])
+                        );
+                    } catch (Exception e) {
+                        LOG.info("error " + e.getMessage());
+                    }
                 }
-
             }
-            LOG.info("FINSIHED INPUT LOADING - read " + i + " lines from " + dataFileName);
+
+            LOG.info("FINSIHED INPUT LOADING - read and loaded " + counter + " lines from " + dataFileName);
+
             br.close();
             iis.close();
         } catch (Exception e) {
