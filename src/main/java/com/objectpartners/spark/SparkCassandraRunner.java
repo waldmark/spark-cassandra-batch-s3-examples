@@ -4,14 +4,12 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.objectpartners.aws.S3Client;
 import com.objectpartners.cassandra.CassandraDataLoader;
-import com.objectpartners.cassandra.CassandraPnetEventDataLoader;
 import com.objectpartners.common.domain.RealTime911;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.PropertySource;
 import org.springframework.stereotype.Component;
 
 import java.util.*;
@@ -25,7 +23,7 @@ public class SparkCassandraRunner {
     private SparkProcessor sparkProcessor;
 
     @Autowired
-    private CassandraPnetEventDataLoader dataLoader;
+    private CassandraDataLoader dataLoader;
 
     @Autowired
     private S3Client s3Client;
@@ -40,7 +38,7 @@ public class SparkCassandraRunner {
         this requires that Cassandra is up and running
         the demo is configured to run with a local Cassandra, for example a docker Cassandra image
          */
-        dataLoader.insertEvents();
+        dataLoader.insertCalls();
 
         //now read data from Cassandra into Spark and batch process the data
         LOG.info("processing Cassandra data with Spark");

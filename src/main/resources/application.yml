@@ -5,56 +5,29 @@ cassandra:
   updateTimeoutMillis: 5000
   compression: LZ4
   nodeAddress: cassandra-oem.service.consul
-#  replicationFactor: 3
+
   keyspaces:
     - name: event_ledger
-      createCommand: "CREATE KEYSPACE event_ledger WITH replication = {'class':'SimpleStrategy', 'replication_factor':1};"
-      dropCommand: "DROP KEYSPACE IF EXISTS event_ledger;"
+      createCommand: "CREATE KEYSPACE testkeyspace WITH replication = {'class':'SimpleStrategy', 'replication_factor':1};"
+      dropCommand: "DROP KEYSPACE IF EXISTS testkeyspace;"
       tables:
-        - name: events
+        - name: calls
           createCommand: >
-              CREATE TABLE event_ledger.events (
-                  emitter_id text,
-                  emitter_type text,
-                  bucket int,
-                  time timestamp,
-                  event_id text,
-                  event_type text,
-                  text_data text,
-                  bin_data blob,
-                  PRIMARY KEY((emitter_id, emitter_type, bucket), time, event_id)
-              ) WITH CLUSTERING ORDER BY (time DESC);
-        - name: meta_events
-          createCommand: >
-              CREATE TABLE event_ledger.meta_events (
-                  emitter_id text,
-                  emitter_type text,
-                  bucket int,
-                  PRIMARY KEY((emitter_id, emitter_type), bucket)
-              ) WITH CLUSTERING ORDER BY (bucket ASC);
-        - name: event_buckets
-          createCommand: >
-              CREATE TABLE event_ledger.event_buckets (
-                  emitter_id text,
-                  emitter_type text,
-                  bucket int,
-                  initial_ttl bigint,
-                  PRIMARY KEY((emitter_id, emitter_type), bucket, initial_ttl)
-              ) WITH CLUSTERING ORDER BY (bucket ASC, initial_ttl DESC);
-
-eventLedger:
-    defaultTtlSeconds: 31536000
-    defaultMaxEventSize: 1000000
-    eventTypeToSize:
-        dummyEventType: 1
+              CREATE TABLE testkeyspace.rt911 (
+                address varchar,
+                calltype varchar,
+                calltime varchar,
+                latitude varchar,
+                longitude varchar,
+                location varchar,
+                id varchar PRIMARY KEY);
 
 ---
 spring.profiles: local
 
-#cassandra.keyspaces[0].createCommand: "CREATE KEYSPACE event_ledger WITH replication = {'class':'SimpleStrategy', 'replication_factor': 1};"
 cassandra.nodeAddress: localhost
 
-spring.application.name: event-ledger
+spring.application.name: rt911
 spring.application.environment: local
 
 ---

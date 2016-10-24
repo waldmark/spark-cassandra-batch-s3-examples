@@ -55,55 +55,55 @@ public class SparkProcessor implements Serializable {
 //         *************************************************************************************************************
 //         sort by frequecy on cleansed data
 //         *************************************************************************************************************
-
-        JavaRDD<String> cleansedCallTypes = callData.map(x -> (
-                x.getCallType().replaceAll("\"", "").replaceAll("[-|,]", "")));
-        // create pair for reduction
-        JavaPairRDD<String, Integer> cpairs = cleansedCallTypes.mapToPair(s -> new Tuple2<>(s, 1)); // 1. create pairs
-        JavaPairRDD<String, Integer> creduced = cpairs.reduceByKey((a, b) -> a + b); // 2. reduce by callType
-        // swap pair order so we can sort on frequency
-        JavaPairRDD<Integer, String> scounts = creduced.mapToPair(Tuple2::swap); // 3. swap so we can order by frequency
-        JavaPairRDD<Integer, String> oscounts = scounts.sortByKey(); // 4. sort by key (frequency)
-        // swap again so the key is call type, not frequency
-        JavaPairRDD<String, Integer> xscounts = oscounts.mapToPair(Tuple2::swap); // 5. swap back so the key is again callType
-        // get a list
-        List<Tuple2<String, Integer>> cleansedList = xscounts.collect(); //6. get a List
+//
+//        JavaRDD<String> cleansedCallTypes = callData.map(x -> (
+//                x.getCallType().replaceAll("\"", "").replaceAll("[-|,]", "")));
+//        // create pair for reduction
+//        JavaPairRDD<String, Integer> cpairs = cleansedCallTypes.mapToPair(s -> new Tuple2<>(s, 1)); // 1. create pairs
+//        JavaPairRDD<String, Integer> creduced = cpairs.reduceByKey((a, b) -> a + b); // 2. reduce by callType
+//        // swap pair order so we can sort on frequency
+//        JavaPairRDD<Integer, String> scounts = creduced.mapToPair(Tuple2::swap); // 3. swap so we can order by frequency
+//        JavaPairRDD<Integer, String> oscounts = scounts.sortByKey(); // 4. sort by key (frequency)
+//        // swap again so the key is call type, not frequency
+//        JavaPairRDD<String, Integer> xscounts = oscounts.mapToPair(Tuple2::swap); // 5. swap back so the key is again callType
+//        // get a list
+//        List<Tuple2<String, Integer>> cleansedList = xscounts.collect(); //6. get a List
 
 //         *************************************************************************************************************
 //         save call frequency data to Casandra
 //         *************************************************************************************************************
-
-        List<CallFrequency> callFrequencyList = new ArrayList<>();
-        // get list iterator that starts with last element
-        ListIterator<Tuple2<String, Integer>> cleansedListIterator = cleansedList.listIterator(cleansedList.size());
-        while (cleansedListIterator.hasPrevious()) { // iterate over list backwards, last to first
-            Tuple2<String, Integer> callCounts = cleansedListIterator.previous();
-            // save each callType frequency
-            CallFrequency callFrequency = new CallFrequency();
-            callFrequency.setCalltype(callCounts._1());
-            callFrequency.setCount(callCounts._2());
-            callFrequencyList.add(callFrequency);
-        }
-
-        // write call frequency data to Cassandra
-        JavaRDD<CallFrequency> cfRDD = sc.parallelize(callFrequencyList);
-        javaFunctions(cfRDD)
-                .writerBuilder("testkeyspace", "calltypes", mapToRow(CallFrequency.class)).saveToCassandra();
+//
+//        List<CallFrequency> callFrequencyList = new ArrayList<>();
+//        // get list iterator that starts with last element
+//        ListIterator<Tuple2<String, Integer>> cleansedListIterator = cleansedList.listIterator(cleansedList.size());
+//        while (cleansedListIterator.hasPrevious()) { // iterate over list backwards, last to first
+//            Tuple2<String, Integer> callCounts = cleansedListIterator.previous();
+//            // save each callType frequency
+//            CallFrequency callFrequency = new CallFrequency();
+//            callFrequency.setCalltype(callCounts._1());
+//            callFrequency.setCount(callCounts._2());
+//            callFrequencyList.add(callFrequency);
+//        }
+//
+//        // write call frequency data to Cassandra
+//        JavaRDD<CallFrequency> cfRDD = sc.parallelize(callFrequencyList);
+//        javaFunctions(cfRDD)
+//                .writerBuilder("testkeyspace", "calltypes", mapToRow(CallFrequency.class)).saveToCassandra();
 
 //         *************************************************************************************************************
 //         filter data to 'Fire' events and group by event date
 //         *************************************************************************************************************
 
-        LOG.info("callRDD count = " + callData.count());
+        LOG.info("unfiltered callRDD count = " + callData.count());
 
         // filter by fire type
         callData = callData.filter( c -> (c.getCallType().matches("(?i:.*\\bFire\\b.*)")));
-        LOG.info("callRDD count = " + callData.count());
+        LOG.info("filtered callRDD count = " + callData.count());
 
         // group the data by date (MM/dd/yyyy)
-        MapByCallDate mapToTimeStamp = new MapByCallDate();
+        MapByCallDate mapByCallDate = new MapByCallDate();
 
-        return callData.mapToPair(mapToTimeStamp);
+        return callData.mapToPair(mapByCallDate);
     }
 
 }

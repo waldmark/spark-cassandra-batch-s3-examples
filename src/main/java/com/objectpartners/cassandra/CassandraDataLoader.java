@@ -6,6 +6,7 @@ import com.datastax.driver.core.Metadata;
 import com.datastax.driver.core.Session;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.io.BufferedInputStream;
@@ -22,6 +23,15 @@ import java.util.zip.GZIPInputStream;
 public class CassandraDataLoader {
 
     private static Logger LOG = LoggerFactory.getLogger(CassandraDataLoader.class);
+
+    @Value(value="${cassandra.keyspaces[0].dropCommand}")
+    private String drpKeyspaceCommand;
+
+    @Value(value="${cassandra.keyspaces[0].createCommand}")
+    private String createKeyspaceCommand;
+
+    @Value(value="${cassandra.keyspaces[0].tables[0].createCommand}")
+    private String createRT911TableCommand;
 
     private Session session;
 
@@ -42,32 +52,16 @@ public class CassandraDataLoader {
         cluster.close();
     }
 
-
     private void createSchema() {
-
         try {
-            session.execute("DROP KEYSPACE IF EXISTS testkeyspace");
+            session.execute(drpKeyspaceCommand);
         } catch (Exception e) {
             System.out.println(e.getMessage());
             System.exit(-1);
         }
 
-        session.execute("CREATE KEYSPACE testkeyspace WITH replication = {'class':'SimpleStrategy', 'replication_factor':1};");
-        session.execute("CREATE TABLE testkeyspace.rt911 ("
-                + "address varchar,"
-                + "calltype varchar,"
-                + "calltime varchar,"
-                + "latitude varchar,"
-                + "longitude varchar,"
-                + "location varchar,"
-                + "id varchar PRIMARY KEY"
-                + ");"
-        );
-        session.execute("CREATE TABLE testkeyspace.callTypes ("
-                + "count int,"
-                + "calltype varchar PRIMARY KEY"
-                + ");"
-        );
+        session.execute(createKeyspaceCommand);
+        session.execute(createRT911TableCommand);
     }
 
     private void loadData() {
