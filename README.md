@@ -10,14 +10,16 @@ Java example of Apache Spark consuming and processing 911 calls stored in Cassan
 
 <i>Requirements:</i>
 * Java 8 installed
-* Cassandra installed and running - this demo was developed with Cassandra 3.9
+* Cassandra
+* Scality S3 server
 
+This demo was developed using docker images running locally for Cassandra and Scality S3. Other instances of Cassandra and S3 should work as well. 
 
 The example can be run from an IDE (like IntelliJ), or from a runnable jar. See instructions below on building the runnable <i>uber-jar</i>.
 
 ### Stand alone processing from a file
 The class com.objectpartners.spark.rt911.standalone.MainApplication has a runnable main. It loads data into Cassandra;
-once loaded, it uses the Spark Cassandra Connector to read and then anlayze data from Cassandra.
+once loaded, it uses the Spark Cassandra Connector to read and then analyze data from Cassandra, and then store the results into S3.
 
 ## Building a runnable jar
 A standalone jar can be created using Gradle. In the project root directory, in a terminal run gradle:
@@ -26,11 +28,6 @@ A standalone jar can be created using Gradle. In the project root directory, in 
 2. gradle shadowjar
 
 The uber-jar will be built and placed in the {$project.dir}/build/libs directory.
-
-## Running from the jar
-To run the example from the jar:
-<pre><code>java -jar spark-direct-cassandra-consumer-0.1-all.jar</code></pre>
-
 
 ## Resources
 In src/main/resources are two gzips containing 911 call data in csv format:
